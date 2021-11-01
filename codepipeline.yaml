@@ -32,13 +32,6 @@ Parameters:
   FullRepositoryId:
     Type: String
     Default: "nevaan9/aws-sam-pipeline-separate-accounts" # TODO
-  MainGitBranch:
-    Type: String
-    Default: ""
-    AllowedValues:
-      - master
-      - production
-    Description: Which branch to triggers this pipeline? master for aws-stage; production for aws-prod
   SamTemplate:
     Type: String
     Default: "template.yaml"
@@ -51,7 +44,7 @@ Parameters:
   PipelineImageRepository:
     Type: String
     # If there are functions with "Image" PackageType in your template,
-    # Update the line below with image repository URL and add "--image-repository ${TESTING_IMAGE_REPOSITORY}" to
+    # Update the line below with image repository URL and add "--image-repository ${PIPELINE_IMAGE_REPOSITORY}" to
     # prod "sam package" and "sam deploy" commands in buildspec files (in pipeline/).
     Default: ""
   # CodeStarConnectionArn and FeatureGitBranch are required for pipelines for feature branches
@@ -65,10 +58,9 @@ Parameters:
 Conditions:
   IsMainBranchPipeline: !Equals [!Ref FeatureGitBranch, ""]
   IsFeatureBranchPipeline: !Not [Condition: IsMainBranchPipeline]
-  IsProductionBranch: !Equals [!Ref MainGitBranch, "production"]
   IsProductionPipeline: !And
+  - !Equals [!Ref "AWS::AccountId", "692396471886"] # TODO PRODUCTON ACCOUNTID
   - Condition: IsMainBranchPipeline
-  - !Equals [!Ref MainGitBranch, "production"]
   CreateConnection: !Equals [!Ref CodeStarConnectionArn, ""]
 
 Resources:
@@ -234,7 +226,7 @@ Resources:
               Configuration:
                 ConnectionArn: !If [CreateConnection, !Ref CodeStarConnection, !Ref CodeStarConnectionArn] # Even for feature branches we need to approve the code-star connection. TODO - figure out how to do this automatically
                 FullRepositoryId: !Ref FullRepositoryId
-                BranchName: !If [IsFeatureBranchPipeline, !Ref FeatureGitBranch, !Ref MainGitBranch]
+                BranchName: !If [IsFeatureBranchPipeline, !Ref FeatureGitBranch, !If [IsProductionPipeline, "production", "master"]] # If its the production account, the build will trigger on the 'production' branch. Else, the master branch
               OutputArtifacts:
                 - Name: SourceCodeAsZip
               RunOrder: 1
@@ -565,7 +557,7 @@ Resources:
             Value: !Ref PipelineCloudFormationExecutionRole
           - Name: PIPELINE_ARTIFACT_BUCKET
             Value: !GetAtt PipelineSamPackageArtifactsBucket.DomainName
-          - Name: TESTING_IMAGE_REPOSITORY
+          - Name: PIPELINE_IMAGE_REPOSITORY
             Value: !Ref PipelineImageRepository
           - Name: FEATURE_BRANCH_NAME
             Value: !Ref FeatureGitBranch
@@ -594,7 +586,7 @@ Resources:
             Value: !Ref PipelineExecutionRole
           - Name: PIPELINE_ARTIFACT_BUCKET
             Value: !GetAtt PipelineSamPackageArtifactsBucket.DomainName
-          - Name: TESTING_IMAGE_REPOSITORY
+          - Name: PIPELINE_IMAGE_REPOSITORY
             Value: !Ref PipelineImageRepository
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Source:
