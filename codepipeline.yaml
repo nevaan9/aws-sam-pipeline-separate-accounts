@@ -31,7 +31,7 @@ Parameters:
     Default: "GitHub"
   FullRepositoryId:
     Type: String
-    Default: "GreywallSoftware/veoci-serverless"
+    Default: "nevaan9/aws-sam-pipeline-separate-accounts" # TODO
   MainGitBranch:
     Type: String
     Default: ""
