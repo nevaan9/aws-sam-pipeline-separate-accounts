@@ -316,7 +316,7 @@ Resources:
                         {"name": "ENV_STACK_NAME", "value": "${PipelineStackName}"},
                         {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${PipelineExecutionRole.Arn}"},
                         {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${PipelineCloudFormationExecutionRole.Arn}"},
-                        {"name": "ENV_BUCKET", "value": "${PipelineSamPackageArtifactsBucket.DomainName}"},
+                        {"name": "ENV_BUCKET", "value": "${PipelineSamPackageArtifactsBucket}"},
                         {"name": "ENV_IMAGE_REPOSITORY", "value": "${PipelineImageRepository}"}
                       ]
                   InputArtifacts:
@@ -338,7 +338,7 @@ Resources:
                         {"name": "ENV_STACK_NAME", "value": "${PipelineStackName}"},
                         {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${PipelineExecutionRole.Arn}"},
                         {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${PipelineCloudFormationExecutionRole.Arn}"},
-                        {"name": "ENV_BUCKET", "value": "${PipelineSamPackageArtifactsBucket.DomainName}"},
+                        {"name": "ENV_BUCKET", "value": "${PipelineSamPackageArtifactsBucket}"},
                         {"name": "ENV_IMAGE_REPOSITORY", "value": "${PipelineImageRepository}"}
                       ]
                   InputArtifacts:
@@ -609,7 +609,7 @@ Resources:
           - Name: PIPELINE_CLOUDFORMATION_EXECUTION_ROLE
             Value: !GetAtt PipelineCloudFormationExecutionRole.Arn
           - Name: PIPELINE_ARTIFACT_BUCKET
-            Value: !GetAtt PipelineSamPackageArtifactsBucket.DomainName
+            Value: !Ref PipelineSamPackageArtifactsBucket
           - Name: PIPELINE_IMAGE_REPOSITORY
             Value: !Ref PipelineImageRepository
           - Name: FEATURE_BRANCH_NAME
@@ -638,7 +638,7 @@ Resources:
           - Name: PIPELINE_EXECUTION_ROLE
             Value: !GetAtt PipelineExecutionRole.Arn
           - Name: PIPELINE_ARTIFACT_BUCKET
-            Value: !GetAtt PipelineSamPackageArtifactsBucket.DomainName
+            Value: !Ref PipelineSamPackageArtifactsBucket
           - Name: PIPELINE_IMAGE_REPOSITORY
             Value: !Ref PipelineImageRepository
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
