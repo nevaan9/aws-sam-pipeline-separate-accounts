@@ -76,8 +76,11 @@ Resources:
         Statement:
         - Effect: Allow
           Principal:
-            AWS: !GetAtt CodeBuildServiceRole.Arn # Allow the codebuild service to assume this role
+            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
           Action: sts:AssumeRole
+          Condition:
+            StringEquals:
+              aws:PrincipalTag/Role: VeociServerlessCodeBuildServiceRole
       Policies:
         - PolicyName: PipelineExecutionRolePermissions
           PolicyDocument:
@@ -206,6 +209,13 @@ Resources:
   # ------------------- PIPELINE ---------------------------
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
+    DependsOn:
+    - PipelineExecutionRole
+    - PipelineCloudFormationExecutionRole
+    - PipelineSamPackageArtifactsBucket
+    - PipelineSamPackageArtifactsBucketPolicy
+    - PipelineSamPackageArtifactsLoggingBucket
+    - PipelineSamPackageArtifactsLoggingBucketPolicy
     Properties:
       ArtifactStore:
         Location: !Ref PipelineArtifactsBucket
@@ -279,41 +289,72 @@ Resources:
 
         - !If
           - IsMainBranchPipeline
-          - Name: DeployServerlessResources
-            Actions:
-              - Name: ManualApproval # Only for production account
-                Condition: IsProductionAccount
-                ActionTypeId:
-                 Category: Approval
-                 Owner: AWS
-                 Provider: Manual
-                 Version: "1"
-                RunOrder: 1
-              - Name: DeployServerlessResources
-                ActionTypeId:
-                  Category: Build
-                  Owner: AWS
-                  Provider: CodeBuild
-                  Version: "1"
-                Configuration:
-                  ProjectName: !Ref CodeBuildProjectDeploy
-                  EnvironmentVariables: !Sub |
-                    [
-                      {"name": "ENV_TEMPLATE", "value": "packaged-pipeline-artifacts.yaml"},
-                      {"name": "ENV_REGION", "value": "${PipelineRegion}"},
-                      {"name": "ENV_STACK_NAME", "value": "${PipelineStackName}"},
-                      {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${PipelineExecutionRole.Arn}"},
-                      {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${PipelineCloudFormationExecutionRole.Arn}"},
-                      {"name": "ENV_BUCKET", "value": "${PipelineSamPackageArtifactsBucket.DomainName}"},
-                      {"name": "ENV_IMAGE_REPOSITORY", "value": "${PipelineImageRepository}"}
-                    ]
-                InputArtifacts:
-                  - Name: BuildArtifactAsZip
-                RunOrder: 2
+          - !If
+            - IsProductionAccount
+            - Name: DeployServerlessResourcesProd
+              Actions:
+                - Name: ManualApproval
+                  ActionTypeId:
+                    Category: Approval
+                    Owner: AWS
+                    Provider: Manual
+                    Version: "1"
+                  RunOrder: 1
+                - Name: DeployServerlessResourcesProd
+                  ActionTypeId:
+                    Category: Build
+                    Owner: AWS
+                    Provider: CodeBuild
+                    Version: "1"
+                  RunOrder: 2
+                  Configuration:
+                    ProjectName: !Ref CodeBuildProjectDeploy
+                    EnvironmentVariables: !Sub |
+                      [
+                        {"name": "ENV_TEMPLATE", "value": "packaged-pipeline-artifacts.yaml"},
+                        {"name": "ENV_REGION", "value": "${PipelineRegion}"},
+                        {"name": "ENV_STACK_NAME", "value": "${PipelineStackName}"},
+                        {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${PipelineExecutionRole.Arn}"},
+                        {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${PipelineCloudFormationExecutionRole.Arn}"},
+                        {"name": "ENV_BUCKET", "value": "${PipelineSamPackageArtifactsBucket.DomainName}"},
+                        {"name": "ENV_IMAGE_REPOSITORY", "value": "${PipelineImageRepository}"}
+                      ]
+                  InputArtifacts:
+                    - Name: BuildArtifactAsZip
+            - Name: DeployServerlessResourcesStage
+              Actions:
+                - Name: DeployServerlessResourcesStage
+                  ActionTypeId:
+                    Category: Build
+                    Owner: AWS
+                    Provider: CodeBuild
+                    Version: "1"
+                  Configuration:
+                    ProjectName: !Ref CodeBuildProjectDeploy
+                    EnvironmentVariables: !Sub |
+                      [
+                        {"name": "ENV_TEMPLATE", "value": "packaged-pipeline-artifacts.yaml"},
+                        {"name": "ENV_REGION", "value": "${PipelineRegion}"},
+                        {"name": "ENV_STACK_NAME", "value": "${PipelineStackName}"},
+                        {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${PipelineExecutionRole.Arn}"},
+                        {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${PipelineCloudFormationExecutionRole.Arn}"},
+                        {"name": "ENV_BUCKET", "value": "${PipelineSamPackageArtifactsBucket.DomainName}"},
+                        {"name": "ENV_IMAGE_REPOSITORY", "value": "${PipelineImageRepository}"}
+                      ]
+                  InputArtifacts:
+                    - Name: BuildArtifactAsZip
+                  RunOrder: 1
           - !Ref AWS::NoValue
 
   PipelineArtifactsBucket:
     Type: AWS::S3::Bucket
+    DependsOn:
+    - PipelineExecutionRole
+    - PipelineCloudFormationExecutionRole
+    - PipelineSamPackageArtifactsBucket
+    - PipelineSamPackageArtifactsBucketPolicy
+    - PipelineSamPackageArtifactsLoggingBucket
+    - PipelineSamPackageArtifactsLoggingBucketPolicy
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
@@ -384,6 +425,13 @@ Resources:
 
   CodePipelineExecutionRole:
     Type: AWS::IAM::Role
+    DependsOn:
+    - PipelineExecutionRole
+    - PipelineCloudFormationExecutionRole
+    - PipelineSamPackageArtifactsBucket
+    - PipelineSamPackageArtifactsBucketPolicy
+    - PipelineSamPackageArtifactsLoggingBucket
+    - PipelineSamPackageArtifactsLoggingBucketPolicy
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -473,6 +521,13 @@ Resources:
   # ------------------- CODEBUILD ---------------------------
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
+    DependsOn:
+    - PipelineExecutionRole
+    - PipelineCloudFormationExecutionRole
+    - PipelineSamPackageArtifactsBucket
+    - PipelineSamPackageArtifactsBucketPolicy
+    - PipelineSamPackageArtifactsLoggingBucket
+    - PipelineSamPackageArtifactsLoggingBucketPolicy
     Properties:
       Tags:
         - Key: Role
@@ -509,14 +564,14 @@ Resources:
                   - "s3:PutObject"
                 Resource:
                   - !Sub "arn:aws:s3:::${PipelineArtifactsBucket}/*"
-        - PolicyName: AssumeStagePipExecutionRoles
+        - PolicyName: AssumePipelineExecutionRoles
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
               - Action:
                   - sts:AssumeRole
                 Effect: Allow
-                Resource: !Ref PipelineExecutionRole
+                Resource: !GetAtt PipelineExecutionRole.Arn
 
   # Uncomment and modify the following step for running the unit-tests
   # CodeBuildProjectUnitTest:
@@ -550,9 +605,9 @@ Resources:
           - Name: PIPELINE_REGION
             Value: !Ref PipelineRegion
           - Name: PIPELINE_EXECUTION_ROLE
-            Value: !Ref PipelineExecutionRole
+            Value: !GetAtt PipelineExecutionRole.Arn
           - Name: PIPELINE_CLOUDFORMATION_EXECUTION_ROLE
-            Value: !Ref PipelineCloudFormationExecutionRole
+            Value: !GetAtt PipelineCloudFormationExecutionRole.Arn
           - Name: PIPELINE_ARTIFACT_BUCKET
             Value: !GetAtt PipelineSamPackageArtifactsBucket.DomainName
           - Name: PIPELINE_IMAGE_REPOSITORY
@@ -581,7 +636,7 @@ Resources:
           - Name: PIPELINE_REGION
             Value: !Ref PipelineRegion
           - Name: PIPELINE_EXECUTION_ROLE
-            Value: !Ref PipelineExecutionRole
+            Value: !GetAtt PipelineExecutionRole.Arn
           - Name: PIPELINE_ARTIFACT_BUCKET
             Value: !GetAtt PipelineSamPackageArtifactsBucket.DomainName
           - Name: PIPELINE_IMAGE_REPOSITORY
