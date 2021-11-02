@@ -31,7 +31,7 @@ Parameters:
     Default: "GitHub"
   FullRepositoryId:
     Type: String
-    Default: "nevaan9/aws-sam-pipeline-separate-accounts" # TODO
+    Default: "nevaan9/aws-sam-pipeline-separate-accounts"
   SamTemplate:
     Type: String
     Default: "template.yaml"
@@ -58,7 +58,7 @@ Parameters:
 Conditions:
   IsMainBranchPipeline: !Equals [!Ref FeatureGitBranch, ""]
   IsFeatureBranchPipeline: !Not [Condition: IsMainBranchPipeline]
-  IsProductionAccount: !Equals [!Ref "AWS::AccountId", "692396471886"] # TODO PRODUCTON ACCOUNTID
+  IsProductionAccount: !Equals [!Ref "AWS::AccountId", "692396471886"] # Prod Account
   CreateConnection: !Equals [!Ref CodeStarConnectionArn, ""]
 
 Resources:
@@ -72,15 +72,14 @@ Resources:
         - Key: Role
           Value: VeociServerlessPipelineExecutionRole #pipeline-execution-role
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
-        - Effect: Allow
-          Principal:
-            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
-          Action: sts:AssumeRole
-          Condition:
-            StringEquals:
-              aws:PrincipalTag/Role: VeociServerlessCodeBuildServiceRole
+          - Action:
+              - "sts:AssumeRole"
+            Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
       Policies:
         - PolicyName: PipelineExecutionRolePermissions
           PolicyDocument:
@@ -109,6 +108,28 @@ Resources:
                   - !Sub "${PipelineSamPackageArtifactsBucket.Arn}/*"
                   - !GetAtt PipelineSamPackageArtifactsBucket.Arn
                 Effect: Allow
+        - PolicyName: CodeBuildLogs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*"
+        - PolicyName: CodeBuildArtifactsBucket
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                  - "s3:PutObject"
+                Resource:
+                  - !Sub "arn:aws:s3:::${PipelineArtifactsBucket}/*"
   # Similar to above. Needed to deploy aws sam templates
   PipelineCloudFormationExecutionRole:
     Type: AWS::IAM::Role
@@ -198,6 +219,75 @@ Resources:
             Condition:
               Bool:
                 aws:SecureTransport: false
+  PipelineArtifactsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      LoggingConfiguration:
+        DestinationBucketName:
+          !Ref PipelineArtifactsLoggingBucket
+        LogFilePrefix: "artifacts-logs"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  PipelineArtifactsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref PipelineArtifactsBucket
+      PolicyDocument:
+        Statement:
+          - Effect: "Deny"
+            Action: "s3:*"
+            Principal: "*"
+            Resource:
+              - !Sub  "${PipelineArtifactsBucket.Arn}/*"
+              - !GetAtt PipelineArtifactsBucket.Arn
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+          - Action:
+              - s3:*
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:s3:::${PipelineArtifactsBucket}
+              - !Sub arn:aws:s3:::${PipelineArtifactsBucket}/*
+            Principal:
+              AWS:
+                - !GetAtt CodePipelineExecutionRole.Arn
+
+  PipelineArtifactsLoggingBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AccessControl: "LogDeliveryWrite"
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  PipelineArtifactsLoggingBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref PipelineArtifactsLoggingBucket
+      PolicyDocument:
+        Statement:
+          - Effect: "Deny"
+            Action: "s3:*"
+            Principal: "*"
+            Resource:
+              - !Sub "${PipelineArtifactsLoggingBucket.Arn}/*"
+              - !GetAtt PipelineArtifactsLoggingBucket.Arn
+            Condition:
+              Bool:
+                aws:SecureTransport: false
   # ------------------- SOURCE ---------------------------
   CodeStarConnection:
     Condition: CreateConnection
@@ -209,13 +299,6 @@ Resources:
   # ------------------- PIPELINE ---------------------------
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
-    DependsOn:
-    - PipelineExecutionRole
-    - PipelineCloudFormationExecutionRole
-    - PipelineSamPackageArtifactsBucket
-    - PipelineSamPackageArtifactsBucketPolicy
-    - PipelineSamPackageArtifactsLoggingBucket
-    - PipelineSamPackageArtifactsLoggingBucketPolicy
     Properties:
       ArtifactStore:
         Location: !Ref PipelineArtifactsBucket
@@ -314,7 +397,6 @@ Resources:
                         {"name": "ENV_TEMPLATE", "value": "packaged-pipeline-artifacts.yaml"},
                         {"name": "ENV_REGION", "value": "${PipelineRegion}"},
                         {"name": "ENV_STACK_NAME", "value": "${PipelineStackName}"},
-                        {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${PipelineExecutionRole.Arn}"},
                         {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${PipelineCloudFormationExecutionRole.Arn}"},
                         {"name": "ENV_BUCKET", "value": "${PipelineSamPackageArtifactsBucket}"},
                         {"name": "ENV_IMAGE_REPOSITORY", "value": "${PipelineImageRepository}"}
@@ -336,7 +418,6 @@ Resources:
                         {"name": "ENV_TEMPLATE", "value": "packaged-pipeline-artifacts.yaml"},
                         {"name": "ENV_REGION", "value": "${PipelineRegion}"},
                         {"name": "ENV_STACK_NAME", "value": "${PipelineStackName}"},
-                        {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${PipelineExecutionRole.Arn}"},
                         {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${PipelineCloudFormationExecutionRole.Arn}"},
                         {"name": "ENV_BUCKET", "value": "${PipelineSamPackageArtifactsBucket}"},
                         {"name": "ENV_IMAGE_REPOSITORY", "value": "${PipelineImageRepository}"}
@@ -346,92 +427,8 @@ Resources:
                   RunOrder: 1
           - !Ref AWS::NoValue
 
-  PipelineArtifactsBucket:
-    Type: AWS::S3::Bucket
-    DependsOn:
-    - PipelineExecutionRole
-    - PipelineCloudFormationExecutionRole
-    - PipelineSamPackageArtifactsBucket
-    - PipelineSamPackageArtifactsBucketPolicy
-    - PipelineSamPackageArtifactsLoggingBucket
-    - PipelineSamPackageArtifactsLoggingBucketPolicy
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      VersioningConfiguration:
-        Status: Enabled
-      LoggingConfiguration:
-        DestinationBucketName:
-          !Ref PipelineArtifactsLoggingBucket
-        LogFilePrefix: "artifacts-logs"
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-
-  PipelineArtifactsBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref PipelineArtifactsBucket
-      PolicyDocument:
-        Statement:
-          - Effect: "Deny"
-            Action: "s3:*"
-            Principal: "*"
-            Resource:
-              - !Sub  "${PipelineArtifactsBucket.Arn}/*"
-              - !GetAtt PipelineArtifactsBucket.Arn
-            Condition:
-              Bool:
-                aws:SecureTransport: false
-          - Action:
-              - s3:*
-            Effect: Allow
-            Resource:
-              - !Sub arn:aws:s3:::${PipelineArtifactsBucket}
-              - !Sub arn:aws:s3:::${PipelineArtifactsBucket}/*
-            Principal:
-              AWS:
-                - !GetAtt CodePipelineExecutionRole.Arn
-
-  PipelineArtifactsLoggingBucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      AccessControl: "LogDeliveryWrite"
-      VersioningConfiguration:
-        Status: Enabled
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-
-  PipelineArtifactsLoggingBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref PipelineArtifactsLoggingBucket
-      PolicyDocument:
-        Statement:
-          - Effect: "Deny"
-            Action: "s3:*"
-            Principal: "*"
-            Resource:
-              - !Sub "${PipelineArtifactsLoggingBucket.Arn}/*"
-              - !GetAtt PipelineArtifactsLoggingBucket.Arn
-            Condition:
-              Bool:
-                aws:SecureTransport: false
-
   CodePipelineExecutionRole:
     Type: AWS::IAM::Role
-    DependsOn:
-    - PipelineExecutionRole
-    - PipelineCloudFormationExecutionRole
-    - PipelineSamPackageArtifactsBucket
-    - PipelineSamPackageArtifactsBucketPolicy
-    - PipelineSamPackageArtifactsLoggingBucket
-    - PipelineSamPackageArtifactsLoggingBucketPolicy
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -518,61 +515,6 @@ Resources:
                 Resource:
                   - !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*"
 
-  # ------------------- CODEBUILD ---------------------------
-  CodeBuildServiceRole:
-    Type: AWS::IAM::Role
-    DependsOn:
-    - PipelineExecutionRole
-    - PipelineCloudFormationExecutionRole
-    - PipelineSamPackageArtifactsBucket
-    - PipelineSamPackageArtifactsBucketPolicy
-    - PipelineSamPackageArtifactsLoggingBucket
-    - PipelineSamPackageArtifactsLoggingBucketPolicy
-    Properties:
-      Tags:
-        - Key: Role
-          Value: VeociServerlessCodeBuildServiceRole # aws-sam-pipeline-codebuild-service-role
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Action:
-              - "sts:AssumeRole"
-            Effect: Allow
-            Principal:
-              Service:
-                - codebuild.amazonaws.com
-      Policies:
-        - PolicyName: CodeBuildLogs
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - "logs:CreateLogGroup"
-                  - "logs:CreateLogStream"
-                  - "logs:PutLogEvents"
-                Resource:
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*"
-        - PolicyName: CodeBuildArtifactsBucket
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - "s3:GetObject"
-                  - "s3:GetObjectVersion"
-                  - "s3:PutObject"
-                Resource:
-                  - !Sub "arn:aws:s3:::${PipelineArtifactsBucket}/*"
-        - PolicyName: AssumePipelineExecutionRoles
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Action:
-                  - sts:AssumeRole
-                Effect: Allow
-                Resource: !GetAtt PipelineExecutionRole.Arn
-
   # Uncomment and modify the following step for running the unit-tests
   # CodeBuildProjectUnitTest:
   #   Type: AWS::CodeBuild::Project
@@ -583,7 +525,7 @@ Resources:
   #       Type: LINUX_CONTAINER
   #       ComputeType: BUILD_GENERAL1_SMALL
   #       Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
-  #     ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+  #     ServiceRole: !GetAtt PipelineExecutionRole.Arn
   #     Source:
   #       Type: CODEPIPELINE
   #       BuildSpec: pipeline/buildspec_unit_test.yml
@@ -604,8 +546,6 @@ Resources:
             Value: !Ref SamTemplate
           - Name: PIPELINE_REGION
             Value: !Ref PipelineRegion
-          - Name: PIPELINE_EXECUTION_ROLE
-            Value: !GetAtt PipelineExecutionRole.Arn
           - Name: PIPELINE_CLOUDFORMATION_EXECUTION_ROLE
             Value: !GetAtt PipelineCloudFormationExecutionRole.Arn
           - Name: PIPELINE_ARTIFACT_BUCKET
@@ -614,7 +554,7 @@ Resources:
             Value: !Ref PipelineImageRepository
           - Name: FEATURE_BRANCH_NAME
             Value: !Ref FeatureGitBranch
-      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      ServiceRole: !GetAtt PipelineExecutionRole.Arn
       Source:
         Type: CODEPIPELINE
         BuildSpec: pipeline/buildspec_feature.yml
@@ -635,13 +575,11 @@ Resources:
             Value: !Ref SamTemplate
           - Name: PIPELINE_REGION
             Value: !Ref PipelineRegion
-          - Name: PIPELINE_EXECUTION_ROLE
-            Value: !GetAtt PipelineExecutionRole.Arn
           - Name: PIPELINE_ARTIFACT_BUCKET
             Value: !Ref PipelineSamPackageArtifactsBucket
           - Name: PIPELINE_IMAGE_REPOSITORY
             Value: !Ref PipelineImageRepository
-      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      ServiceRole: !GetAtt PipelineExecutionRole.Arn
       Source:
         Type: CODEPIPELINE
         BuildSpec: pipeline/buildspec_build_package.yml
@@ -656,7 +594,7 @@ Resources:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
-      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      ServiceRole: !GetAtt PipelineExecutionRole.Arn
       Source:
         Type: CODEPIPELINE
         BuildSpec: pipeline/buildspec_deploy.yml
