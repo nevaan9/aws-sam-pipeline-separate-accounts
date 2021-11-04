@@ -97,7 +97,7 @@ Resources:
                   - cloudformation:DescribeStacks
                   - cloudformation:GetTemplateSummary
                   - cloudformation:DescribeStackResource
-                Resource: "*" # !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*"
+                Resource: !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*"
                 Effect: Allow
               - Action:
                   - s3:GetObject*
