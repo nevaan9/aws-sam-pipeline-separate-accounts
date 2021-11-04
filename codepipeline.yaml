@@ -97,7 +97,7 @@ Resources:
                   - cloudformation:DescribeStacks
                   - cloudformation:GetTemplateSummary
                   - cloudformation:DescribeStackResource
-                Resource: "*"
+                Resource: "*" # !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*"
                 Effect: Allow
               - Action:
                   - s3:GetObject*
@@ -148,7 +148,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: '*'
-                Resource: !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*"
+                Resource: !Sub "arn:aws:cloudformation:${AWS::Region}:aws:transform/Serverless-2016-10-31" # managing aws sam resources
   # -------- All the below resource are S3 bukcets to store the packaged aws sam templates. There is a main bucket with logging enabled, and there are bucket policies defied below as well ----------------
   PipelineSamPackageArtifactsBucket:
     Type: AWS::S3::Bucket
