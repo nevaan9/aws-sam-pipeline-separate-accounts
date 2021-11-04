@@ -40,7 +40,7 @@ Parameters:
     Default: "us-east-1"
   PipelineStackName:
     Type: String
-    Default: "VeociServerlessPipelineOutputs"
+    Default: "SlsPipelineOutputs"
   PipelineImageRepository:
     Type: String
     # If there are functions with "Image" PackageType in your template,
@@ -142,15 +142,24 @@ Resources:
           Principal:
             Service: cloudformation.amazonaws.com
       Policies:
-        - PolicyName: GrantCloudFormationFullAccess
+        - PolicyName: SamDeployPermissions
           PolicyDocument:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
-                Action: '*'
-                Resource: 
+                Action:
+                  - cloudformation:CreateChangeSet
+                Resource:
                   - !Sub "arn:aws:cloudformation:${AWS::Region}:aws:transform/Serverless-2016-10-31" # managing aws sam resources
-                  - !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*"
+              - Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:AttachRolePolicy
+                  - iam:DeleteRole
+                  - iam:DetachRolePolicy
+                  - iam:GetRole
+                  - iam:TagRole
+                Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/*" # !Sub "arn:aws:iam::${AWS::AccountId}:role/${PipelineStackName}*"
   # -------- All the below resource are S3 bukcets to store the packaged aws sam templates. There is a main bucket with logging enabled, and there are bucket policies defied below as well ----------------
   PipelineSamPackageArtifactsBucket:
     Type: AWS::S3::Bucket
