@@ -36,7 +36,7 @@ def lambda_handler(event, context):
     return {
         "statusCode": 200,
         "body": json.dumps({
-            "message": "Restricted Roles!! Take !5",
+            "message": "Restricted Roles!! Take !6",
             # "location": ip.text.replace("\n", "")
         }),
     }
