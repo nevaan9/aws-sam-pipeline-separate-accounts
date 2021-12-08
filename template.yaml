@@ -11,10 +11,10 @@ Globals:
     Timeout: 3
 
 Resources:
-  # HelloWorldFunctionEndpointAccessLogGroup:
-  #   Type: AWS::Logs::LogGroup
-  #   Properties:
-  #     RetentionInDays: 60
+  HelloWorldFunctionEndpointAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 60
   HelloWorldFunctionEndpoint:
     Type: AWS::Serverless::Api
     Properties:
@@ -23,9 +23,9 @@ Resources:
         AllowMethods: "'OPTIONS,POST'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
         AllowOrigin: "'*'"
-      # AccessLogSetting:
-      #   DestinationArn: !GetAtt HelloWorldFunctionEndpointAccessLogGroup.Arn
-      #   Format: '{"requestTime":"$context.requestTime","requestId":"$context.requestId","httpMethod":"$context.httpMethod","path":"$context.path","status":$context.status,"responseLatency":$context.responseLatency,"integrationRequestId":"$context.integration.requestId","functionResponseStatus":"$context.integration.status"}'
+      AccessLogSetting:
+        DestinationArn: !GetAtt HelloWorldFunctionEndpointAccessLogGroup.Arn
+        Format: '{"requestTime":"$context.requestTime","requestId":"$context.requestId","httpMethod":"$context.httpMethod","path":"$context.path","status":$context.status,"responseLatency":$context.responseLatency,"integrationRequestId":"$context.integration.requestId","functionResponseStatus":"$context.integration.status"}'
   HelloWorldFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
