@@ -213,15 +213,15 @@ Resources:
               #   Action:
               #     - ecr:GetAuthorizationToken
               #   Resource: "*"
-        # - PolicyName: CloudWatchAccessLogsPermissions
-        #   PolicyDocument:
-        #     Version: "2012-10-17"
-        #     Statement:
-        #       - Effect: Allow
-        #         Action:
-        #           - "logs:CreateLogGroup"
-        #         Resource:
-        #           - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${PipelineStackName}*"
+        - PolicyName: CloudWatchAccessLogsPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogGroup"
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${PipelineStackName}*"
   # -------- All the below resource are S3 bukcets to store the packaged aws sam templates. There is a main bucket with logging enabled, and there are bucket policies defied below as well ----------------
   PipelineSamPackageArtifactsBucket:
     Type: AWS::S3::Bucket
