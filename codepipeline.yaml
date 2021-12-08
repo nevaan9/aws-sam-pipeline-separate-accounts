@@ -220,6 +220,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - "logs:CreateLogGroup"
+                  - "logs:PutRetentionPolicy"
                 Resource:
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${PipelineStackName}*"
   # -------- All the below resource are S3 bukcets to store the packaged aws sam templates. There is a main bucket with logging enabled, and there are bucket policies defied below as well ----------------
