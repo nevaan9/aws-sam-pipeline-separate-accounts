@@ -40,7 +40,7 @@ Parameters:
     Default: "us-east-1"
   PipelineStackName:
     Type: String
-    Default: "VeociServerlessPipelineOutputs"
+    Default: "SvrlssPipeOutputs" # keeping the name of this short intentionally
   PipelineImageRepository:
     Type: String
     # If there are functions with "Image" PackageType in your template,
@@ -142,13 +142,92 @@ Resources:
           Principal:
             Service: cloudformation.amazonaws.com
       Policies:
-        - PolicyName: GrantCloudFormationFullAccess
+        - PolicyName: SamDeployPermissions
           PolicyDocument:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
-                Action: '*'
-                Resource: '*'
+                Action:
+                  - cloudformation:CreateChangeSet
+                Resource:
+                  - !Sub "arn:aws:cloudformation:${AWS::Region}:aws:transform/Serverless-2016-10-31" # managing aws sam resources
+              - Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:AttachRolePolicy
+                  - iam:DeleteRole
+                  - iam:DetachRolePolicy
+                  - iam:GetRole
+                  - iam:TagRole
+                Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/${PipelineStackName}*" # !Sub "arn:aws:iam::${AWS::AccountId}:role/${PipelineStackName}*"
+              - Effect: Allow
+                Action:
+                  - lambda:AddPermission
+                  - lambda:CreateFunction
+                  - lambda:DeleteFunction
+                  - lambda:GetFunction
+                  - lambda:GetFunctionConfiguration
+                  - lambda:ListTags
+                  - lambda:RemovePermission
+                  - lambda:TagResource
+                  - lambda:UntagResource
+                  - lambda:UpdateFunctionCode
+                  - lambda:UpdateFunctionConfiguration
+                Resource:
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PipelineStackName}*"
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: lambda.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - apigateway:DELETE
+                  - apigateway:GET
+                  - apigateway:PATCH
+                  - apigateway:POST
+                  - apigateway:PUT
+                Resource:
+                  - !Sub "arn:aws:apigateway:${AWS::Region}::*"
+              # We do not need ECR stuff for now. Lets figure this out if we ever need to use docker images for our lambdas
+              # - Effect: Allow
+              #   Action:
+              #     - ecr:BatchCheckLayerAvailability
+              #     - ecr:BatchGetImage
+              #     - ecr:CompleteLayerUpload
+              #     - ecr:CreateRepository
+              #     - ecr:DeleteRepository
+              #     - ecr:DescribeImages
+              #     - ecr:DescribeRepositories
+              #     - ecr:GetDownloadUrlForLayer
+              #     - ecr:GetRepositoryPolicy
+              #     - ecr:InitiateLayerUpload
+              #     - ecr:ListImages
+              #     - ecr:PutImage
+              #     - ecr:SetRepositoryPolicy
+              #     - ecr:UploadLayerPart
+              #   Resource:
+              #     - !Sub "arn:aws:ecr:*:${AWS::AccountId}:repository/*"
+              # - Effect: Allow
+              #   Action:
+              #     - ecr:GetAuthorizationToken
+              #   Resource: "*"
+        - PolicyName: CloudWatchAccessLogsPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:PutRetentionPolicy"
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${PipelineStackName}*"
+              - Effect: Allow
+                Action:
+                  - "logs:DescribeLogGroups"
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group::log-stream:"
   # -------- All the below resource are S3 bukcets to store the packaged aws sam templates. There is a main bucket with logging enabled, and there are bucket policies defied below as well ----------------
   PipelineSamPackageArtifactsBucket:
     Type: AWS::S3::Bucket
