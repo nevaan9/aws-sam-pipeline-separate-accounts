@@ -39,3 +39,13 @@ Resources:
             Path: /hello
             Method: get
             RestApiId: !Ref HelloWorldFunctionEndpoint
+  HelloWorldFunctionVersion:
+    Type: AWS::Lambda::Version
+    Properties:
+      FunctionName: !Ref HelloWorldFunction
+  HelloWorldFunctionAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      FunctionName: !Ref HelloWorldFunction
+      FunctionVersion: !GetAtt HelloWorldFunctionVersion.Version
+      Name: v1

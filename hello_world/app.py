@@ -36,7 +36,7 @@ def lambda_handler(event, context):
     return {
         "statusCode": 200,
         "body": json.dumps({
-            "message": "SEPARATE ACCOUNTS! Take 4",
+            "message": "VERSION TEST: 1",
             # "location": ip.text.replace("\n", "")
         }),
     }
