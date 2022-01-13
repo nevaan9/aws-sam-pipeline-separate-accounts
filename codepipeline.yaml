@@ -173,6 +173,7 @@ Resources:
                   - lambda:UntagResource
                   - lambda:UpdateFunctionCode
                   - lambda:UpdateFunctionConfiguration
+                  - lambda:ListVersionsByFunction
                 Resource:
                   - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PipelineStackName}*"
               - Effect: Allow
