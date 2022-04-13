@@ -5,10 +5,18 @@ Description: >
 
   Sample SAM Template for sam-pipeline
 
+Parameters:
+  EnvName:
+    Type: String
+    Default: "stage"
+
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
     Timeout: 3
+    Environment:
+      Variables:
+        ENV_NAME: !Ref EnvName
 
 Resources:
   HelloWorldFunctionEndpointAccessLogGroup:
