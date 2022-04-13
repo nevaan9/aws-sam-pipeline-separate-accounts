@@ -485,7 +485,8 @@ Resources:
                         {"name": "ENV_STACK_NAME", "value": "${PipelineStackName}"},
                         {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${PipelineCloudFormationExecutionRole.Arn}"},
                         {"name": "ENV_BUCKET", "value": "${PipelineSamPackageArtifactsBucket}"},
-                        {"name": "ENV_IMAGE_REPOSITORY", "value": "${PipelineImageRepository}"}
+                        {"name": "ENV_IMAGE_REPOSITORY", "value": "${PipelineImageRepository}"},
+                        {"name": "ENV_NAME", "value": "production"}
                       ]
                   InputArtifacts:
                     - Name: BuildArtifactAsZip
@@ -506,7 +507,8 @@ Resources:
                         {"name": "ENV_STACK_NAME", "value": "${PipelineStackName}"},
                         {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${PipelineCloudFormationExecutionRole.Arn}"},
                         {"name": "ENV_BUCKET", "value": "${PipelineSamPackageArtifactsBucket}"},
-                        {"name": "ENV_IMAGE_REPOSITORY", "value": "${PipelineImageRepository}"}
+                        {"name": "ENV_IMAGE_REPOSITORY", "value": "${PipelineImageRepository}"},
+                        {"name": "ENV_NAME", "value": "stage"}
                       ]
                   InputArtifacts:
                     - Name: BuildArtifactAsZip
